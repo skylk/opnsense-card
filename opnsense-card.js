@@ -1,31 +1,19 @@
-/*
- * Carte OPNsense (custom:opnsense-card) pour Home Assistant, au style des cartes
- * MyElectricalData new (Carte Enedis Linky New) et des Cartes Serveur HA :
- * passerelles (état, latence, pertes, gigue), débits des interfaces, CPU, RAM, disque,
- * table d'états, tampons réseau, températures, baux DHCP, mise à jour d'OPNsense,
- * redémarrage et arrêt confirmés en deux clics.
- *
- * Données : l'intégration OPNsense de HACS (travisghansen/hass-opnsense), ou, sans intégration,
- * le package REST fourni dans le dépôt (packages/opnsense.yaml). Voir le README.
- */
+/* Karta OPNsense (custom:opnsense-card) pro Home Assistant ve stylu karet MyElectricalData a serverových karet HA. Zobrazuje brány, síťové přenosy, CPU, RAM, disk, tabulku stavů, síťové vyrovnávací paměti, teploty, pronájmy DHCP a aktualizace. Restart a vypnutí se potvrzují dvěma kliknutími. Data poskytuje integrace HACS travisghansen/hass-opnsense nebo balíček REST packages/opnsense.yaml. Viz README. */
 
 (() => {
 const CARD_VERSION = "0.2.1";
 
 
-/* ------------------------------------------------------------- affichage */
+/* Zobrazení */
 
 const fmt = (n, digits = 1) =>
   n === null || n === undefined
     ? "—"
-    : Number(n).toLocaleString("fr-FR", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    : Number(n).toLocaleString("cs-CZ", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-/** Classe de thème de la carte :
- *  v2   : style MyElectricalData, toujours bleu nuit ;
- *  auto : style MyElectricalData, bleu nuit si Home Assistant est en mode sombre, clair sinon ;
- *  ha   : couleurs du thème Home Assistant (clair ou sombre). */
+/* Třída motivu karty: v2 = tmavě modrý styl MyElectricalData; auto = světlý nebo tmavý styl podle Home Assistant; ha = barvy motivu Home Assistant. */
 const themeClass = (theme, hass) => {
   const light = hass?.themes?.darkMode === false;
   if (theme === "ha") return `th-ha${light ? " light" : ""}`;
@@ -39,7 +27,7 @@ const since = (iso) => {
   if (!Number.isFinite(t)) return null;
   const m = Math.max(0, Math.floor((Date.now() - t) / 60000));
   const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mn = m % 60;
-  return d ? `${d} j ${h} h` : h ? `${h} h ${String(mn).padStart(2, "0")} min` : `${mn} min`;
+  return d ? `${d} d ${h} h` : h ? `${h} h ${String(mn).padStart(2, "0")} min` : `${mn} min`;
 };
 
 
@@ -163,7 +151,7 @@ const PVE_STYLE = `<style>
 </style>`;
 
 
-/* ------------------------------------------------------------------ style */
+/* Styly */
 
 const STYLE = `<style>
 :host {
@@ -268,9 +256,9 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 footer { padding: 10px 18px 14px; font-size: .7rem; color: var(--med-muted); }
 .empty { padding: 18px; display: flex; flex-direction: column; gap: 6px; font-size: .9rem; }
 .empty span { color: var(--med-muted); }
-/* Thème Home Assistant : fond, textes et bordures suivent le thème clair ou sombre */
+/* Motiv Home Assistant: pozadí, texty a okraje odpovídají světlému nebo tmavému motivu. */
 ha-card.th-ha {
-  /* accent (icônes, onglets, sélections, contours) : couleur principale du thème */
+  /* Zvýraznění ikon, záložek, výběrů a obrysů hlavní barvou motivu. */
   --med-accent: var(--primary-color, #1d93e3);
   --med-on-accent: var(--text-primary-color, #fff);
   --med-bg: var(--ha-card-background, var(--card-background-color, #fff));
@@ -282,7 +270,7 @@ ha-card.th-ha {
   border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, var(--divider-color, #e0e0e0));
 }
 ha-card.th-ha.light { --med-green: #4c8a0b; --med-up: #c2560f; --med-down: #1d8a4b; }
-/* Style MyElectricalData en version claire (theme: auto quand Home Assistant est en mode clair) */
+/* Světlý styl MyElectricalData (theme: auto při světlém režimu Home Assistant). */
 ha-card.th-v2.light {
   --med-bg: #ffffff; --med-surface: #f2f5f9; --med-line: #dbe2ec;
   --med-text: #1a2434; --med-muted: #5b6b82;
@@ -298,7 +286,7 @@ ha-card.light .tag.t-white { color: #1f2937; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>`;
 
-/* ----------------------------------------------------------------- éditeur */
+/* Editor */
 
 const THEME_SELECT = {
   name: "theme",
@@ -306,15 +294,15 @@ const THEME_SELECT = {
     select: {
       mode: "dropdown",
       options: [
-        { value: "v2", label: "Style MyElectricalData (bleu nuit)" },
-        { value: "auto", label: "Style MyElectricalData, clair ou sombre selon Home Assistant" },
-        { value: "ha", label: "Thème Home Assistant (clair ou sombre)" },
+        { value: "v2", label: "Styl MyElectricalData (tmavě modrý)" },
+        { value: "auto", label: "Styl MyElectricalData, světlý nebo tmavý podle Home Assistant" },
+        { value: "ha", label: "Motiv Home Assistant (světlý nebo tmavý)" },
       ],
     },
   },
 };
 
-/** Éditeur visuel : formulaire Home Assistant construit à partir du schéma. */
+/* Vizuální editor: formulář Home Assistant sestavený podle schématu. */
 function makeEditor(schema, labels, defaults) {
   const hasDays = schema.some((s) => s.name === "days");
   return class extends HTMLElement {
@@ -352,35 +340,30 @@ function makeEditor(schema, labels, defaults) {
 }
 
 
-/* ============================================================== OPNsense */
+/* OPNsense */
 
-/*
- * Carte OPNsense (custom:opnsense-card) pour l'intégration hass-opnsense (HACS) :
- * état et mise à jour du pare-feu, ressources (CPU, RAM, disque, tables), températures,
- * passerelles (état, latence, pertes), débits des interfaces, baux DHCP, et redémarrage ou
- * arrêt confirmés en deux clics.
- */
+/* Karta OPNsense pro integraci hass-opnsense (HACS): stav a aktualizace firewallu, systémové prostředky, teploty, brány, síťové přenosy a pronájmy DHCP. Restart a vypnutí se potvrzují dvěma kliknutími. */
 const OPN_DEFAULTS = {
   title: "",
   icon: "mdi:wall-fire",
   icon_color: "",
   show_info: true, show_resources: true, show_gateways: true, show_interfaces: true, show_actions: true,
-  interfaces: [], // interfaces affichées (vide = celles qui ont des débits)
+  interfaces: [], // zobrazená rozhraní (prázdné = rozhraní s přenosy)
   theme: "v2",
 };
-/** Rôle d'une entité OPNsense d'après la fin de son nom (noms anglais fixés par l'intégration). */
+/* Role entity OPNsense podle konce jejího názvu (anglické názvy určuje integrace). */
 const OPN_ROLES = [
   ["cpu", /_cpu_usage$/], ["mem", /_memory_used_percentage$/], ["mem_used", /_memory_used$/], ["mem_total", /_memory_physmem$/],
   ["swap", /_memory_swap_used_percentage$/], ["mbuf", /_memory_buffers_used_percentage$/], ["pf", /_pf_state_table_used_percentage$/],
   ["load1", /_system_load_average_one_minute$/], ["boot", /_system_boottime$/], ["dhcp", /_dhcp_leases_all$/], ["certs", /_certificates$/],
   ["disk", /_filesystem_used_percentage(?:_root)?$/], ["ups", /_ups_status$/], ["ups_batt", /_ups_battery_charge$/],
 ];
-/** État d'une passerelle (dpinger) et d'une interface, en français. */
-const OPN_GW = { online: ["En ligne", "ok"], none: ["En ligne", "ok"], down: ["Hors ligne", "bad"], loss: ["Pertes", "warn"], delay: ["Latence", "warn"], delay_loss: ["Latence et pertes", "warn"], force_down: ["Désactivée", "off"], offline: ["Hors ligne", "bad"], latency: ["Latence", "warn"], packetloss: ["Pertes", "warn"] };
-const opnGw = (s) => OPN_GW[String(s ?? "").toLowerCase().replace(/[+\s]+/g, "_")] || [s ? String(s) : "Inconnu", "off"];
-/** Débit en bit/s d'un capteur, selon son unité (kB/s par défaut de l'intégration, ou converti par Home Assistant). */
+/* Stav brány (dpinger) a rozhraní v češtině. */
+const OPN_GW = { online: ["Online", "ok"], none: ["Online", "ok"], down: ["Offline", "bad"], loss: ["Ztráty", "warn"], delay: ["Latence", "warn"], delay_loss: ["Latence a ztráty", "warn"], force_down: ["Zakázáno", "off"], offline: ["Offline", "bad"], latency: ["Latence", "warn"], packetloss: ["Ztráty", "warn"] };
+const opnGw = (s) => OPN_GW[String(s ?? "").toLowerCase().replace(/[+\s]+/g, "_")] || [s ? String(s) : "Neznámý", "off"];
+/* Přenosová rychlost senzoru v bit/s podle jeho jednotky (výchozí kB/s integrace nebo jednotka převedená v Home Assistant). */
 const OPN_RATE = { "b/s": 8, "kb/s": 8e3, "kib/s": 8192, "mb/s": 8e6, "mib/s": 8388608, "gb/s": 8e9, "bit/s": 1, "kbit/s": 1e3, "mbit/s": 1e6, "gbit/s": 1e9 };
-/** Ordre d'affichage : WAN d'abord, puis LAN, puis le reste par nom. */
+/* Pořadí zobrazení: nejprve WAN, potom LAN a ostatní podle názvu. */
 const opnRank = (n) => (/^wan/i.test(n) ? 0 : /^lan/i.test(n) ? 1 : /wan/i.test(n) ? 0.5 : 2);
 const bitrate = (bps) => (bps === null ? "—" : bps >= 1e9 ? `${fmt(bps / 1e9, 2)} Gbit/s` : bps >= 1e6 ? `${fmt(bps / 1e6, bps < 1e7 ? 2 : 1)} Mbit/s` : bps >= 1e3 ? `${fmt(bps / 1e3, 0)} kbit/s` : `${fmt(bps, 0)} bit/s`);
 
@@ -402,7 +385,7 @@ class OpnsenseCard extends HTMLElement {
       this.shadowRoot.addEventListener("click", (this._clicks = (ev) => {
         const act = ev.target.closest?.("[data-act]");
         if (act) {
-          // Redémarrer, arrêter : premier clic arme, second clic dans les 5 s confirme (service de l'intégration)
+          // Restart a vypnutí: první kliknutí připraví akci, druhé do 5 s ji potvrdí (služba integrace).
           ev.stopPropagation();
           const what = act.dataset.act;
           if (this._armed === what) {
@@ -448,14 +431,14 @@ class OpnsenseCard extends HTMLElement {
     return Number.isFinite(v) ? v : null;
   }
 
-  /** Entités d'un pare-feu OPNsense (appareil choisi, sinon le premier) rangées par rôle, interfaces et passerelles. */
+  /* Entity firewallu OPNsense (vybrané zařízení, jinak první) rozdělené podle rolí, rozhraní a bran. */
   _resolve() {
     if (this._map) return this._map;
     const hass = this._hass, c = this._config, reg = hass.entities || {};
-    // entités restaurées (plus fournies par aucune intégration, ex. ancien package) : ignorées
+    // Obnovené entity, které již neposkytuje žádná integrace (např. starý balíček), se ignorují.
     const live = (id) => !reg[id]?.hidden && !hass.states[id]?.attributes?.restored;
     let ids = Object.keys(hass.states).filter((id) => reg[id]?.platform === "opnsense" && live(id));
-    // Sans intégration : capteurs du package REST (packages/opnsense.yaml), reconnus à leur préfixe
+    // Bez integrace: senzory balíčku REST (packages/opnsense.yaml) rozpoznané podle předpony.
     const rest = !ids.length;
     if (rest) {
       const pre = new RegExp(`^(sensor|binary_sensor|update)\\.${String(c.prefix || "opnsense").toLowerCase().replace(/[^a-z0-9_]/g, "")}_`);
@@ -469,7 +452,7 @@ class OpnsenseCard extends HTMLElement {
       if (dom === "update" || (dom === "binary_sensor" && /_firmware_updates?_available$/.test(id))) { m.update ||= id; continue; }
       if (dom === "binary_sensor" && /_pending_notices_present$/.test(id)) { m.notices = id; continue; }
       if (dom !== "sensor") continue;
-      // package REST : toutes les passerelles et toutes les interfaces dans un capteur chacun
+      // Balíček REST: všechny brány v jednom senzoru a všechna rozhraní v druhém.
       if (/_gateways$/.test(id)) { m.gwAll = id; continue; }
       if (/_traffic$/.test(id)) { m.traffic = id; continue; }
       let x = /_interface_(.+?)_(status|traffic_in_rate|traffic_out_rate)$/.exec(id);
@@ -487,23 +470,22 @@ class OpnsenseCard extends HTMLElement {
     return m;
   }
 
-  /** Nom lisible d'une interface ou d'une passerelle : nom de l'entité sans le préfixe de l'appareil. */
+  /* Čitelný název rozhraní nebo brány: název entity bez předpony zařízení. */
   _label(id, re, fallback) {
     const fn = String(this._st(id)?.attributes?.friendly_name || "");
     const x = re.exec(fn);
     return x ? x[1] : fallback.replace(/_/g, " ").toUpperCase();
   }
 
-  /** Passerelles du package REST : « nom,état,latence,pertes,gigue|… » (valeurs en ms et %). */
+  /* Brány balíčku REST: „název,stav,latence,ztráty,kolísání|…“ (hodnoty v ms a %). */
   _gwPack(id) {
     const n = (v) => (v === "" || v === undefined || !Number.isFinite(Number(v)) ? null : Number(v));
     return String(this._st(id)?.state || "").split("|").map((row) => row.split(",")).filter((f) => f.length >= 2 && f[0])
       .map(([name, st, d, l, j]) => ({ key: name, status: id, name, state: opnGw(st), delay: n(d), loss: n(l), jitter: n(j), ip: null }))
-      .sort((a, b) => opnRank(a.name) - opnRank(b.name) || a.name.localeCompare(b.name, "fr"));
+      .sort((a, b) => opnRank(a.name) - opnRank(b.name) || a.name.localeCompare(b.name, "cs"));
   }
 
-  /** Interfaces du package REST : « heure|nom,octets reçus,octets envoyés|… ». La carte calcule les
-   *  débits entre deux relevés (le précédent est repris de l'historique au chargement de la page). */
+  /* Rozhraní balíčku REST: „čas|název,přijaté bajty,odeslané bajty|…“. Karta počítá rychlosti ze dvou měření; předchozí při načtení stránky získá z historie. */
   _trafPack(id) {
     const parse = (state) => {
       const [t, ...rows] = String(state || "").split("|");
@@ -518,7 +500,7 @@ class OpnsenseCard extends HTMLElement {
       const dt = cur.t - tr.last.t;
       for (const [name, [rx, tx]] of Object.entries(cur.i)) {
         const p = tr.last.i[name];
-        // compteur remis à zéro (redémarrage) : pas de débit négatif
+        // Čítač vynulovaný restartem: přenosová rychlost nesmí být záporná.
         if (p) tr.rates[name] = [Math.max(0, ((rx - p[0]) * 8) / dt), Math.max(0, ((tx - p[1]) * 8) / dt)];
       }
     }
@@ -531,21 +513,21 @@ class OpnsenseCard extends HTMLElement {
           const prev = (res?.[0] || []).map((h) => parse(h.state)).filter((x) => x && x.t < cur.t).pop();
           if (!prev || Object.keys(tr.rates).length) return;
           tr.last = prev;
-          this._trafPack(id); // recalcule avec le relevé précédent
+          this._trafPack(id); // Přepočítat s předchozím měřením.
           this._sig = null;
           this._render();
         })
-        .catch(() => { /* sans historique : le débit s'affiche au relevé suivant */ });
+        .catch(() => { /* Bez historie se rychlost zobrazí při následujícím měření. */ });
     }
     return Object.keys(cur.i).map((name) => ({ key: name, in: id, out: id, name, up: null, rin: tr.rates[name]?.[0] ?? null, rout: tr.rates[name]?.[1] ?? null }))
-      .sort((a, b) => opnRank(a.name) - opnRank(b.name) || a.name.localeCompare(b.name, "fr"));
+      .sort((a, b) => opnRank(a.name) - opnRank(b.name) || a.name.localeCompare(b.name, "cs"));
   }
 
   _bps(id) {
     const v = this._num(id);
     if (v === null) return null;
     const u = String(this._st(id)?.attributes?.unit_of_measurement || "kB/s").toLowerCase().replace(/\s/g, "");
-    return Math.max(0, v * (OPN_RATE[u] || 8e3)); // un compteur remis à zéro donne une dérivée négative
+    return Math.max(0, v * (OPN_RATE[u] || 8e3)); // Vynulovaný čítač způsobí zápornou derivaci.
   }
 
   _render() {
@@ -566,48 +548,48 @@ class OpnsenseCard extends HTMLElement {
     if (!found) {
       this.shadowRoot.innerHTML = `${STYLE}${SRV_STYLE}${PVE_STYLE}<ha-card class="${themeClass(c.theme, this._hass)}">
         <header><div class="brand"><ha-icon class="srv-icon" icon="${esc(c.icon || "mdi:wall-fire")}" style="color:${esc(c.icon_color || "var(--med-accent, var(--med-blue))")}"></ha-icon><div><div class="title">${esc(c.title || "OPNsense")}</div></div></div></header>
-        <div class="empty">Aucun pare-feu OPNsense trouvé<span>Installez l'intégration OPNsense (HACS : travisghansen/hass-opnsense), ou le package REST fourni avec la carte (packages/opnsense.yaml), puis rechargez la page.</span></div></ha-card>`;
+        <div class="empty">Nebyl nalezen žádný firewall OPNsense<span>Nainstalujte integraci OPNsense (HACS: travisghansen/hass-opnsense) nebo balíček REST dodávaný s kartou (packages/opnsense.yaml) a poté znovu načtěte stránku.</span></div></ha-card>`;
       return;
     }
 
-    // --- passerelles : la passerelle par défaut d'abord (WAN), puis les autres
+    // Brány: nejprve výchozí brána (WAN), potom ostatní.
     const gwRows = Object.values(m.gws).length ? Object.values(m.gws) : [];
     let gws = gwRows.map((g) => ({ ...g, name: this._label(g.status || g.delay, /Gateway (.+?) (?:status|delay|loss|stddev|address)$/i, g.key),
       state: opnGw(this._st(g.status)?.state), delay: this._num(g.delay), loss: this._num(g.loss), jitter: this._num(g.stddev), ip: this._st(g.address)?.state }))
-      .sort((a, b) => opnRank(a.name) - opnRank(b.name) || a.name.localeCompare(b.name, "fr"));
+      .sort((a, b) => opnRank(a.name) - opnRank(b.name) || a.name.localeCompare(b.name, "cs"));
     if (!gws.length && m.gwAll) gws = this._gwPack(m.gwAll);
     const gwDown = gws.filter((g) => g.state[1] === "bad"), gwWarn = gws.filter((g) => g.state[1] === "warn");
     const upd = this._st(m.update), updOn = upd?.state === "on";
     const notice = this._st(m.notices)?.state === "on";
     const leds = [
-      gws.length ? led(!gwDown.length, gwDown.length > 1 ? `${gwDown.length} passerelles hors ligne` : gwDown.length ? `${esc(gwDown[0].name)} hors ligne` : "Passerelles", (gwDown[0] || gws[0]).status) : "",
-      upd ? `<span class="srv-led ${updOn ? "upd" : "ok"}" data-entity="${esc(m.update)}"><i></i>${updOn ? "Mise à jour" : "À jour"}</span>` : "",
-      notice ? led(false, "Alertes", m.notices) : "",
+      gws.length ? led(!gwDown.length, gwDown.length > 1 ? `${gwDown.length} ${gwDown.length < 5 ? "brány" : "bran"} offline` : gwDown.length ? `${esc(gwDown[0].name)} offline` : "Brány", (gwDown[0] || gws[0]).status) : "",
+      upd ? `<span class="srv-led ${updOn ? "upd" : "ok"}" data-entity="${esc(m.update)}"><i></i>${updOn ? "Aktualizace" : "Aktuální"}</span>` : "",
+      notice ? led(false, "Upozornění", m.notices) : "",
     ].join("");
 
-    // --- informations
+    // Informace
     const boot = this._st(m.roles.boot)?.state;
     const inst = upd?.attributes?.installed_version || m.version, last = upd?.attributes?.latest_version;
     const dhcp = this._num(m.roles.dhcp), load = this._num(m.roles.load1);
     const info = c.show_info !== false ? [
-      boot && since(boot) ? `<div class="tile srv-t" data-entity="${esc(m.roles.boot)}"><div class="tile-l"><ha-icon icon="mdi:clock-start"></ha-icon>Uptime</div><div class="tile-v opn-up">${esc(since(boot))}</div></div>` : "",
+      boot && since(boot) ? `<div class="tile srv-t" data-entity="${esc(m.roles.boot)}"><div class="tile-l"><ha-icon icon="mdi:clock-start"></ha-icon>Doba provozu</div><div class="tile-v opn-up">${esc(since(boot))}</div></div>` : "",
       inst || upd ? `<div class="tile srv-t ${updOn ? "opn-upd" : ""}"${m.update ? ` data-entity="${esc(m.update)}"` : ""}><div class="tile-l"><ha-icon icon="${updOn ? "mdi:package-up" : "mdi:package-check"}"></ha-icon>OPNsense</div>
-        <div class="srv-kv"><span>${updOn ? "Dispo" : "Version"}</span><b class="${updOn ? "bad" : ""}">${esc((updOn ? last : inst) || "—")}</b></div>
-        ${upd ? `<div class="srv-kv"><span>État</span><b class="${updOn ? "bad" : "ok"}">${updOn ? "À installer" : "À jour"}</b></div>` : ""}</div>` : "",
-      dhcp !== null ? `<div class="tile srv-t" data-entity="${esc(m.roles.dhcp)}"><div class="tile-l"><ha-icon icon="mdi:devices"></ha-icon>Baux DHCP</div><div class="tile-v">${fmt(dhcp, 0)}</div></div>` : "",
-      load !== null ? `<div class="tile srv-t" data-entity="${esc(m.roles.load1)}"><div class="tile-l"><ha-icon icon="mdi:chart-line"></ha-icon>Charge</div><div class="tile-v">${fmt(load, 2)}</div></div>` : "",
+        <div class="srv-kv"><span>${updOn ? "Dostupná" : "Verze"}</span><b class="${updOn ? "bad" : ""}">${esc((updOn ? last : inst) || "—")}</b></div>
+        ${upd ? `<div class="srv-kv"><span>Stav</span><b class="${updOn ? "bad" : "ok"}">${updOn ? "K instalaci" : "Aktuální"}</b></div>` : ""}</div>` : "",
+      dhcp !== null ? `<div class="tile srv-t" data-entity="${esc(m.roles.dhcp)}"><div class="tile-l"><ha-icon icon="mdi:devices"></ha-icon>Pronájmy DHCP</div><div class="tile-v">${fmt(dhcp, 0)}</div></div>` : "",
+      load !== null ? `<div class="tile srv-t" data-entity="${esc(m.roles.load1)}"><div class="tile-l"><ha-icon icon="mdi:chart-line"></ha-icon>Zátěž</div><div class="tile-v">${fmt(load, 2)}</div></div>` : "",
     ].filter(Boolean) : [];
 
-    // --- ressources
+    // Systémové prostředky
     const memPct = this._num(m.roles.mem), memUsed = this._num(m.roles.mem_used), memTot = this._num(m.roles.mem_total);
     const memU = String(this._st(m.roles.mem_total)?.attributes?.unit_of_measurement || "B");
     const toGo = (v, u) => (v === null ? null : v / ({ b: 1e9, kb: 1e6, kib: 1048576, mb: 1e3, mib: 1024 / 1.048576, gb: 1, gib: 1 / 1.073741824 }[u.toLowerCase()] || 1e9));
     const res = c.show_resources !== false ? [
       gauge(m.roles.cpu, "mdi:cpu-64-bit", "CPU", this._num(m.roles.cpu), "", 70, 90),
-      gauge(m.roles.mem, "mdi:memory", "RAM", memPct, memUsed !== null && memTot !== null ? `${fmt(toGo(memUsed, memU), 1)} Go / ${fmt(toGo(memTot, memU), 1)} Go` : "", 80, 92),
-      gauge(m.roles.disk, "mdi:harddisk", "Disque", this._num(m.roles.disk), "", 80, 90),
-      gauge(m.roles.pf, "mdi:table-network", "Table d'états", this._num(m.roles.pf), "", 70, 90),
-      gauge(m.roles.mbuf, "mdi:memory-arrow-down", "Tampons réseau", this._num(m.roles.mbuf), m.rest ? "" : "utilisés / alloués", m.rest ? 80 : 101, m.rest ? 95 : 101),
+      gauge(m.roles.mem, "mdi:memory", "RAM", memPct, memUsed !== null && memTot !== null ? `${fmt(toGo(memUsed, memU), 1)} GB / ${fmt(toGo(memTot, memU), 1)} GB` : "", 80, 92),
+      gauge(m.roles.disk, "mdi:harddisk", "Disk", this._num(m.roles.disk), "", 80, 90),
+      gauge(m.roles.pf, "mdi:table-network", "Tabulka stavů", this._num(m.roles.pf), "", 70, 90),
+      gauge(m.roles.mbuf, "mdi:memory-arrow-down", "Síťové vyrovnávací paměti", this._num(m.roles.mbuf), m.rest ? "" : "využité / přidělené", m.rest ? 80 : 101, m.rest ? 95 : 101),
       gauge(m.roles.swap, "mdi:swap-horizontal", "Swap", this._num(m.roles.swap), "", 50, 80),
     ].filter(Boolean) : [];
     const temps = c.show_resources !== false ? m.temps.map((id) => {
@@ -617,41 +599,41 @@ class OpnsenseCard extends HTMLElement {
       return `<div class="tile srv-b ${v >= 80 ? "warn" : ""}" data-entity="${esc(id)}"><ha-icon icon="mdi:thermometer"></ha-icon><div class="tile-l">${esc(label)}</div><div class="srv-bv">${fmt(v, 0)} °C</div></div>`;
     }).filter(Boolean) : [];
 
-    // --- passerelles
+    // Brány
     const gwHtml = c.show_gateways !== false ? gws.map((g) => `<div class="opn-gw ${g.state[1]}" data-entity="${esc(g.status || g.delay || "")}">
-        <i class="opn-dot ${g.state[1]}"></i><div class="opn-n"><b>${esc(g.name)}</b><small>${esc(g.state[1] === "ok" && g.delay === null && g.loss === null && g.jitter === null ? "En ligne · sans surveillance" : g.state[0])}${g.ip && !/^(unknown|unavailable|~)$/.test(g.ip) ? ` · ${esc(g.ip)}` : ""}</small></div>
-        <div class="opn-m"><span title="Latence">${g.delay === null ? "—" : `${fmt(g.delay, g.delay < 10 ? 1 : 0)} ms`}</span><span title="Pertes" class="${(g.loss || 0) >= 5 ? "bad" : ""}">${g.loss === null ? "—" : `${fmt(g.loss, 0)} %`}</span><span title="Gigue">${g.jitter === null ? "—" : `± ${fmt(g.jitter, 1)} ms`}</span></div></div>`).join("") : "";
-    const gwHead = gws.length ? `<div class="opn-gh"><span></span><span></span><div class="opn-m"><span>Latence</span><span>Pertes</span><span>Gigue</span></div></div>` : "";
+        <i class="opn-dot ${g.state[1]}"></i><div class="opn-n"><b>${esc(g.name)}</b><small>${esc(g.state[1] === "ok" && g.delay === null && g.loss === null && g.jitter === null ? "Online · bez monitorování" : g.state[0])}${g.ip && !/^(unknown|unavailable|~)$/.test(g.ip) ? ` · ${esc(g.ip)}` : ""}</small></div>
+        <div class="opn-m"><span title="Latence">${g.delay === null ? "—" : `${fmt(g.delay, g.delay < 10 ? 1 : 0)} ms`}</span><span title="Ztráty" class="${(g.loss || 0) >= 5 ? "bad" : ""}">${g.loss === null ? "—" : `${fmt(g.loss, 0)} %`}</span><span title="Kolísání">${g.jitter === null ? "—" : `± ${fmt(g.jitter, 1)} ms`}</span></div></div>`).join("") : "";
+    const gwHead = gws.length ? `<div class="opn-gh"><span></span><span></span><div class="opn-m"><span>Latence</span><span>Ztráty</span><span>Kolísání</span></div></div>` : "";
 
-    // --- interfaces : débits entrant et sortant
+    // Rozhraní: příchozí a odchozí přenosy
     const want = (Array.isArray(c.interfaces) ? c.interfaces : String(c.interfaces || "").split(/[,\s]+/)).map((x) => String(x).toLowerCase()).filter(Boolean);
     const ifs = Object.values(m.ifaces).filter((i) => (i.in || i.out) && (!want.length || want.includes(i.key.toLowerCase()) || want.includes(this._label(i.in || i.out, /Interface (.+?) Traffic/i, i.key).toLowerCase())))
       .map((i) => ({ ...i, name: this._label(i.in || i.out || i.status, /Interface (.+?) (?:Traffic|Status)/i, i.key), up: this._st(i.status)?.state, rin: this._bps(i.in), rout: this._bps(i.out) }))
-      .sort((a, b) => opnRank(a.name) - opnRank(b.name) || a.name.localeCompare(b.name, "fr"));
+      .sort((a, b) => opnRank(a.name) - opnRank(b.name) || a.name.localeCompare(b.name, "cs"));
     if (!ifs.length && m.traffic) ifs.push(...this._trafPack(m.traffic).filter((i) => !want.length || want.includes(i.name.toLowerCase())));
     const ifHtml = c.show_interfaces !== false ? ifs.map((i) => {
       const down = i.up && !/^(up|active|connected|unknown|unavailable)$/i.test(i.up);
-      return `<div class="opn-if ${down ? "bad" : ""}" data-entity="${esc(i.in || i.out)}"><div class="opn-n"><b>${esc(i.name)}</b><small>${down ? `<span class="bad">Déconnectée</span>` : i.up === null ? "Reçu · envoyé" : "Connectée"}</small></div>
-        <span class="opn-r in" title="Reçu"><ha-icon icon="mdi:arrow-down"></ha-icon>${bitrate(i.rin)}</span><span class="opn-r out" title="Envoyé"><ha-icon icon="mdi:arrow-up"></ha-icon>${bitrate(i.rout)}</span></div>`;
+      return `<div class="opn-if ${down ? "bad" : ""}" data-entity="${esc(i.in || i.out)}"><div class="opn-n"><b>${esc(i.name)}</b><small>${down ? `<span class="bad">Odpojeno</span>` : i.up === null ? "Příjem · odesílání" : "Připojeno"}</small></div>
+        <span class="opn-r in" title="Přijato"><ha-icon icon="mdi:arrow-down"></ha-icon>${bitrate(i.rin)}</span><span class="opn-r out" title="Odesláno"><ha-icon icon="mdi:arrow-up"></ha-icon>${bitrate(i.rout)}</span></div>`;
     }).join("") : "";
 
-    // --- actions
+    // Akce
     const act = (what, icon, label, cls) => {
       const armed = this._armed === what;
-      return `<button class="pve-btn wide ${cls} ${armed ? "armed" : ""}" data-act="${what}" title="${esc(armed ? `${label} : cliquez encore pour confirmer` : label)}" aria-label="${esc(armed ? `Confirmer : ${label}` : label)}"><ha-icon icon="${armed ? "mdi:check-bold" : icon}"></ha-icon>${armed ? "<span>Confirmer</span>" : ""}</button>`;
+      return `<button class="pve-btn wide ${cls} ${armed ? "armed" : ""}" data-act="${what}" title="${esc(armed ? `${label}: potvrďte dalším kliknutím` : label)}" aria-label="${esc(armed ? `Potvrdit: ${label}` : label)}"><ha-icon icon="${armed ? "mdi:check-bold" : icon}"></ha-icon>${armed ? "<span>Potvrdit</span>" : ""}</button>`;
     };
-    // Intégration : services opnsense.* ; package REST : rest_command.opnsense_reboot et opnsense_halt, s'ils sont déclarés
+    // Integrace: služby opnsense.*; balíček REST: rest_command.opnsense_reboot a opnsense_halt, pokud jsou definovány.
     const svc = this._hass.services || {};
     const can = (what) => (m.rest ? !!svc.rest_command?.[`opnsense_${what}`] : !!svc.opnsense?.[what === "reboot" ? "system_reboot" : "system_halt"]);
-    const acts = c.show_actions !== false ? [can("reboot") ? act("reboot", "mdi:restart", "Redémarrer", "") : "", can("halt") ? act("halt", "mdi:power", "Arrêter", "stop") : ""].join("") : "";
+    const acts = c.show_actions !== false ? [can("reboot") ? act("reboot", "mdi:restart", "Restartovat", "") : "", can("halt") ? act("halt", "mdi:power", "Vypnout", "stop") : ""].join("") : "";
 
-    const sub = [inst ? `OPNsense ${inst}` : m.model, gws.length ? (gwDown.length ? `${gwDown.length} passerelle${gwDown.length > 1 ? "s" : ""} hors ligne` : gwWarn.length ? "passerelle dégradée" : "Internet OK") : ""].filter(Boolean).join(" · ");
+    const sub = [inst ? `OPNsense ${inst}` : m.model, gws.length ? (gwDown.length ? `${gwDown.length} ${gwDown.length === 1 ? "brána" : gwDown.length < 5 ? "brány" : "bran"} offline` : gwWarn.length ? "zhoršený stav brány" : "Internet OK") : ""].filter(Boolean).join(" · ");
     const body = [
-      c.show_info !== false && info.length ? sec("mdi:information-outline", "Informations", `<div class="tiles srv-tiles">${info.join("")}</div>`) : "",
-      res.length || temps.length ? sec("mdi:speedometer", "Ressources", `${res.length ? `<div class="srv-grid pve-res opn-res">${res.join("")}</div>` : ""}${temps.length ? `<div class="tiles srv-tiles opn-tm">${temps.join("")}</div>` : ""}`) : "",
-      sec("mdi:router-network", "Passerelles", gwHtml ? `<div class="opn-list">${gwHead}${gwHtml}</div>` : ""),
-      sec("mdi:swap-vertical", "Interfaces", ifHtml ? `<div class="opn-list">${ifHtml}</div>` : ""),
-      sec("mdi:gesture-tap-button", "Actions", acts ? `<div class="pve-na">${acts}</div><div class="srv-gs pve-guard"><ha-icon icon="mdi:alert-outline"></ha-icon>Le redémarrage coupe Internet le temps du démarrage (et Home Assistant s'il passe par ce pare-feu).</div>` : ""),
+      c.show_info !== false && info.length ? sec("mdi:information-outline", "Informace", `<div class="tiles srv-tiles">${info.join("")}</div>`) : "",
+      res.length || temps.length ? sec("mdi:speedometer", "Prostředky", `${res.length ? `<div class="srv-grid pve-res opn-res">${res.join("")}</div>` : ""}${temps.length ? `<div class="tiles srv-tiles opn-tm">${temps.join("")}</div>` : ""}`) : "",
+      sec("mdi:router-network", "Brány", gwHtml ? `<div class="opn-list">${gwHead}${gwHtml}</div>` : ""),
+      sec("mdi:swap-vertical", "Rozhraní", ifHtml ? `<div class="opn-list">${ifHtml}</div>` : ""),
+      sec("mdi:gesture-tap-button", "Akce", acts ? `<div class="pve-na">${acts}</div><div class="srv-gs pve-guard"><ha-icon icon="mdi:alert-outline"></ha-icon>Restart přeruší internetové připojení po dobu spouštění (a také přístup k Home Assistant, pokud vede přes tento firewall).</div>` : ""),
     ].join("");
     const alertCls = gwDown.length ? "srv-alert" : "";
     this.shadowRoot.innerHTML = `${STYLE}${SRV_STYLE}${PVE_STYLE}${OPN_STYLE}<ha-card class="${themeClass(c.theme, this._hass)} ${alertCls}">
@@ -705,22 +687,22 @@ const OPN_SCHEMA = [
   THEME_SELECT,
 ];
 const OPN_LABELS = {
-  title: "Titre (vide = nom du pare-feu)",
-  icon: "Icône",
-  icon_color: "Couleur de l'icône",
-  device: "Pare-feu OPNsense (vide = le premier)",
-  prefix: "Sans intégration : début du nom des capteurs du package REST (vide = opnsense)",
-  interfaces: "Interfaces affichées (vide = toutes celles qui ont des débits)",
-  show_info: "Section Informations (uptime, version, baux DHCP, charge)",
-  show_resources: "Section Ressources (CPU, RAM, disque, tables, températures)",
-  show_gateways: "Section Passerelles (état, latence, pertes)",
-  show_interfaces: "Section Interfaces (débits)",
-  show_actions: "Boutons redémarrer et arrêter (deux clics)",
-  theme: "Couleurs de la carte",
+  title: "Název (prázdné = název firewallu)",
+  icon: "Ikona",
+  icon_color: "Barva ikony",
+  device: "Firewall OPNsense (prázdné = první)",
+  prefix: "Bez integrace: začátek názvu senzorů balíčku REST (prázdné = opnsense)",
+  interfaces: "Zobrazená rozhraní (prázdné = všechna s přenosy)",
+  show_info: "Sekce Informace (doba provozu, verze, pronájmy DHCP, zátěž)",
+  show_resources: "Sekce Prostředky (CPU, RAM, disk, tabulky, teploty)",
+  show_gateways: "Sekce Brány (stav, latence, ztráty)",
+  show_interfaces: "Sekce Rozhraní (přenosové rychlosti)",
+  show_actions: "Tlačítka pro restart a vypnutí (dvě kliknutí)",
+  theme: "Barvy karty",
 };
 const OpnsenseCardEditor = makeEditor(OPN_SCHEMA, OPN_LABELS, OPN_DEFAULTS);
 
-/* ---------------------------------------------------------- enregistrement */
+/* Registrace */
 
 if (typeof customElements !== "undefined") {
   if (!customElements.get("opnsense-card")) customElements.define("opnsense-card", OpnsenseCard);
@@ -729,8 +711,8 @@ if (typeof customElements !== "undefined") {
   if (!window.customCards.some((c) => c.type === "opnsense-card")) {
     window.customCards.push({
       type: "opnsense-card",
-      name: "Carte OPNsense",
-      description: "Pare-feu OPNsense : passerelles (état, latence, pertes), débits des interfaces, CPU, RAM, table d'états, températures, mise à jour, redémarrage confirmé.",
+      name: "Karta OPNsense",
+      description: "Firewall OPNsense: brány (stav, latence, ztráty), přenosové rychlosti rozhraní, CPU, RAM, tabulka stavů, teploty, aktualizace a restart s potvrzením.",
       preview: true,
     });
   }
